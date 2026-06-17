@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from types import SimpleNamespace
 
 import httpx2 as httpx
@@ -18,16 +19,17 @@ def _clear_overrides():
     app.dependency_overrides.clear()
 
 
-def make_engine() -> Engine:
-    engine = create_engine(
+@pytest.fixture
+def engine() -> Generator[Engine]:
+    eng = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
-    return db.create_db_and_seed(engine)
+    db.create_db_and_seed(eng)
+    yield eng
+    eng.dispose()
 
 
-def client_as(*roles: str, engine: Engine | None = None) -> TestClient:
-    engine = engine or make_engine()
-
+def client_as(engine: Engine, *roles: str) -> TestClient:
     def fake_user():
         return SimpleNamespace(roles=list(roles), name="tester")
 
@@ -83,31 +85,29 @@ def admin(client: TestClient) -> httpx.Response:
         (("Viewer", "Admin"), admin, 200),
     ],
 )
-def test_rbac_matrix(roles, call, expected):
-    assert call(client_as(*roles)).status_code == expected
+def test_rbac_matrix(engine, roles, call, expected):
+    assert call(client_as(engine, *roles)).status_code == expected
 
 
-def test_repoint_revokes_access():
-    engine = make_engine()
-    assert approve(client_as("Approver", engine=engine)).status_code == 200
-    assert admin(client_as("Admin", engine=engine)).status_code == 200  # drops Approver
-    assert approve(client_as("Approver", engine=engine)).status_code == 403
+def test_repoint_revokes_access(engine):
+    assert approve(client_as(engine, "Approver")).status_code == 200
+    assert admin(client_as(engine, "Admin")).status_code == 200  # drops Approver
+    assert approve(client_as(engine, "Approver")).status_code == 403
 
 
-def test_repoint_grants_access():
-    engine = make_engine()
-    assert approve(client_as("Viewer", engine=engine)).status_code == 403
-    r = client_as("Admin", engine=engine).put(
+def test_repoint_grants_access(engine):
+    assert approve(client_as(engine, "Viewer")).status_code == 403
+    r = client_as(engine, "Admin").put(
         "/admin/permissions",
         params={"endpoint_key": "expenses:approve"},
         json=["Viewer", "Approver", "Admin"],
     )
     assert r.status_code == 200
-    assert approve(client_as("Viewer", engine=engine)).status_code == 200
+    assert approve(client_as(engine, "Viewer")).status_code == 200
 
 
-def test_empty_roles_rejected():
-    r = client_as("Admin").put(
+def test_empty_roles_rejected(engine):
+    r = client_as(engine, "Admin").put(
         "/admin/permissions",
         params={"endpoint_key": "expenses:approve"},
         json=[],
@@ -115,8 +115,8 @@ def test_empty_roles_rejected():
     assert r.status_code == 422
 
 
-def test_admin_cannot_lock_itself_out():
-    r = client_as("Admin").put(
+def test_admin_cannot_lock_itself_out(engine):
+    r = client_as(engine, "Admin").put(
         "/admin/permissions",
         params={"endpoint_key": "admin:permissions"},
         json=["Viewer"],
@@ -124,8 +124,8 @@ def test_admin_cannot_lock_itself_out():
     assert r.status_code == 422
 
 
-def test_admin_creates_new_permission_key():
-    r = client_as("Admin").put(
+def test_admin_creates_new_permission_key(engine):
+    r = client_as(engine, "Admin").put(
         "/admin/permissions",
         params={"endpoint_key": "reports:export"},
         json=["Admin"],

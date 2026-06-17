@@ -3,18 +3,19 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi_azure_auth.user import User
-from sqlmodel import Session
+from sqlmodel import Session, create_engine
 
 from auth import azure_scheme, require
 from config import settings
-from db import create_db_and_seed, engine, get_session
+from db import create_db_and_seed, get_session
 from models import EndpointPermission
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await azure_scheme.openid_config.load_config()
-    create_db_and_seed()
+    engine = create_engine(settings.DB_URL, echo=settings.DEBUG)
+    create_db_and_seed(engine)
     yield
     engine.dispose()
 

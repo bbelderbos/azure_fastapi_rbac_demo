@@ -6,23 +6,20 @@ from sqlmodel import Session, SQLModel, create_engine
 from config import settings
 from models import EndpointPermission
 
-engine = create_engine(settings.DB_URL, echo=settings.DEBUG)
-
 SEED: dict[str, list[str]] = {
     "expenses:read": ["Viewer", "Approver", "Admin"],
     "expenses:approve": ["Approver", "Admin"],
     "admin:permissions": ["Admin"],
 }
-# azure users:
-# bob->admin, pybob approver, testuser viewer
 
 
 def get_session() -> Generator[Session]:
+    engine = create_engine(settings.DB_URL, echo=settings.DEBUG)
     with Session(engine) as session:
         yield session
 
 
-def create_db_and_seed(engine: Engine = engine) -> Engine:
+def create_db_and_seed(engine: Engine) -> None:
     SQLModel.metadata.create_all(engine)
 
     with Session(engine) as session:
@@ -34,5 +31,3 @@ def create_db_and_seed(engine: Engine = engine) -> Engine:
                 )
                 session.add(new_permission)
         session.commit()
-
-    return engine
