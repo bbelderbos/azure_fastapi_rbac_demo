@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi_azure_auth.user import User
 from sqlmodel import Session
 
@@ -50,6 +50,15 @@ async def set_permission(
     user: Annotated[User, Depends(require("admin:permissions"))],
     session: Annotated[Session, Depends(get_session)],
 ):
+    if not roles:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "roles must be non-empty"
+        )
+    if endpoint_key == "admin:permissions" and "Admin" not in roles:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "cannot remove Admin from admin:permissions",
+        )
     permission = session.get(EndpointPermission, endpoint_key)
     if permission is None:
         permission = EndpointPermission(endpoint_key=endpoint_key, roles=roles)

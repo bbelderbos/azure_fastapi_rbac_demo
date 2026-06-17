@@ -1,4 +1,4 @@
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 from fastapi import Depends, HTTPException, status
 from fastapi_azure_auth import SingleTenantAzureAuthorizationCodeBearer

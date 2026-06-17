@@ -12,6 +12,12 @@ from auth import azure_scheme
 from main import app
 
 
+@pytest.fixture(autouse=True)
+def _clear_overrides():
+    yield
+    app.dependency_overrides.clear()
+
+
 def make_engine() -> Engine:
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
@@ -98,6 +104,24 @@ def test_repoint_grants_access():
     )
     assert r.status_code == 200
     assert approve(client_as("Viewer", engine=engine)).status_code == 200
+
+
+def test_empty_roles_rejected():
+    r = client_as("Admin").put(
+        "/admin/permissions",
+        params={"endpoint_key": "expenses:approve"},
+        json=[],
+    )
+    assert r.status_code == 422
+
+
+def test_admin_cannot_lock_itself_out():
+    r = client_as("Admin").put(
+        "/admin/permissions",
+        params={"endpoint_key": "admin:permissions"},
+        json=["Viewer"],
+    )
+    assert r.status_code == 422
 
 
 def test_admin_creates_new_permission_key():
