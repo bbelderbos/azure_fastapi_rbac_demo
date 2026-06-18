@@ -33,6 +33,7 @@ app = FastAPI(
 
 @app.get("/expenses")
 async def list_expenses(user: Annotated[User, Depends(require("expenses:read"))]):
+    """List all expenses."""
     return {"expenses": ["expense1", "expense2"], "user": user.name}
 
 
@@ -41,6 +42,7 @@ async def approve_expense(
     expense_id: int,
     user: Annotated[User, Depends(require("expenses:approve"))],
 ):
+    """Approve an expense by id."""
     return {"approved": expense_id, "by": user.name}
 
 
@@ -55,6 +57,7 @@ async def set_permission(
     user: Annotated[User, Depends(require("admin:permissions"))],
     session: Annotated[Session, Depends(get_session)],
 ):
+    """Set the roles allowed to access an endpoint."""
     if not roles:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "roles must be non-empty"
