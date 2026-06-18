@@ -48,7 +48,7 @@ You need two app registrations in the same tenant:
 
 ```bash
 cp .env.example .env   # fill TENANT_ID, APP_CLIENT_ID, OPENAPI_CLIENT_ID
-uv run uvicorn main:app --reload
+uv run fastapi dev
 # open http://localhost:8000/docs → Authorize → call the endpoints
-uv run pytest -q       # tests stub Entra, so no Azure needed
+uv run pytest          # tests stub Entra, so no Azure needed
 ```
