@@ -22,7 +22,7 @@ def require(endpoint_key: str) -> Callable[..., Awaitable[User]]:
         session: Session = Depends(get_session),
     ) -> User:
         perm = session.get(EndpointPermission, endpoint_key)
-        allowed = set(perm.roles) if perm else set()
+        allowed = set(perm.roles) if perm is not None else set()
         if not allowed.intersection(set(user.roles)):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
