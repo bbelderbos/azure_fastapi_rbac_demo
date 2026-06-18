@@ -44,6 +44,10 @@ async def approve_expense(
     return {"approved": expense_id, "by": user.name}
 
 
+def locks_out_admins(endpoint_key: str, roles: list[str]) -> bool:
+    return endpoint_key == "admin:permissions" and "Admin" not in roles
+
+
 @app.put("/admin/permissions")
 async def set_permission(
     endpoint_key: str,
@@ -55,12 +59,13 @@ async def set_permission(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "roles must be non-empty"
         )
-    if endpoint_key == "admin:permissions" and "Admin" not in roles:
+    if locks_out_admins(endpoint_key, roles):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "cannot remove Admin from admin:permissions",
         )
     permission = session.get(EndpointPermission, endpoint_key)
+    # upsert
     if permission is None:
         permission = EndpointPermission(endpoint_key=endpoint_key, roles=roles)
     else:
